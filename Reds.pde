@@ -582,8 +582,19 @@ class RedRocketLauncher extends RocketLauncher implements RedRobot {
       if (target())
       {
         // shoot on the target
-        moveTowardsTarget();
-        launchBullet(towards(brain[0]));
+        Faf faf = (Faf)minDist(perceiveFafs());
+        if (faf != null) {
+          // Calculate the perpendicular direction to the Faf
+          float fafDirection = towards(faf);
+          float perpendicularDirection = fafDirection + radians(90);
+        
+          // Move in the perpendicular direction
+          heading = perpendicularDirection;
+          tryToMoveForward();
+        } else {
+          moveTowardsTarget();
+          launchBullet(towards(new PVector(brain[0].x, brain[0].y)));
+        }
       }
       else
         // else explore randomly
@@ -593,10 +604,7 @@ class RedRocketLauncher extends RocketLauncher implements RedRobot {
     void moveTowardsTarget() {
       heading = towards(brain[0]);
   
-      if (freeAhead(speed, collisionAngle))
-        forward(speed);
-      else
-        randomMove(45);
+      tryToMoveForward();
     }
     void handleMessages() {
       Message msg;
