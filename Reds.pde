@@ -125,10 +125,21 @@ class RedBase extends Base implements RedRobot {
           // gives the requested amount of bullets only if at least 1000 units of energy left after
           giveBullets(msg.alice, msg.args[0]);
         }
+      } else if(msg.type == INFORM_ABOUT_TARGET) {
+        informNearRobotsAboutTarget((int)msg.args[3]); // We found a target, we inform the robots in the area of perception
       }
+
     }
     // clear the message queue
     flushMessages();
+  }
+  // TD3 : I.2. Send information about the target to the robots in the area of perception
+  void informNearRobotsAboutTarget(int idTarget) {
+      ArrayList<Robot> rocky = perceiveRobots(friend, LAUNCHER); // Robots in the area of perception
+      for (int i = 0; i < rocky.size(); i++) {
+        informAboutTarget(rocky.get(i), game.getRobot(idTarget)); // Send information about the target to the robots in the area of perception
+      }
+
   }
 }
 
