@@ -384,6 +384,12 @@ class RedHarvester extends Harvester implements RedRobot {
     if ((carryingFood > 200) || (energy < 100))
       // time to go back to the base
       brain[4].x = 1;
+    //If the harvester is full of food, it gives it to an explorer
+    else if(carryingFood > 2000) {
+      Explorer explo = (Explorer)oneOf(perceiveRobots(friend, EXPLORER));
+      if (explo != null)
+        giveFood(explo, carryingFood-2000);
+    }
 
     // if in "go back" state
     if (brain[4].x == 1) {
