@@ -47,6 +47,8 @@ class RedBase extends Base implements RedRobot {
     newHarvester();
     // 7 more harvesters to create
     brain[5].x = 7;
+    brain[5].y = 7;
+    brain[5].z = 7;
   }
 
   //
@@ -563,6 +565,8 @@ class RedRocketLauncher extends RocketLauncher implements RedRobot {
   // > defines the behavior of the agent
   //
   void go() {
+    
+    handleMessages();
     // if no energy or no bullets
     if ((energy < 100) || (bullets == 0))
       // go back to the base
@@ -576,13 +580,41 @@ class RedRocketLauncher extends RocketLauncher implements RedRobot {
       selectTarget();
       // if target identified
       if (target())
+      {
         // shoot on the target
+        moveTowardsTarget();
         launchBullet(towards(brain[0]));
+      }
       else
         // else explore randomly
         randomMove(45);
     }
   }
+    void moveTowardsTarget() {
+      heading = towards(brain[0]);
+  
+      if (freeAhead(speed, collisionAngle))
+        forward(speed);
+      else
+        randomMove(45);
+    }
+    void handleMessages() {
+      Message msg;
+      // for all messages
+      for (int i = 0; i < messages.size(); i++) {
+        msg = messages.get(i);
+  
+        // Vérifiez le type de message
+        if (msg.type == INFORM_ABOUT_TARGET) {
+          // Si le message est du type INFORM_ABOUT_TARGET,
+          brain[0].x = msg.args[0];
+          brain[0].y = msg.args[1];
+          brain[0].z = msg.args[2];
+          brain[4].y = 1; // Définissez le drapeau pour indiquer qu'une cible est localisée
+        }
+      }
+      flushMessages();
+    }
 
   //
   // selectTarget
