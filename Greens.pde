@@ -7,7 +7,7 @@
 
 class GreenTeam extends Team {
   final int MY_CUSTOM_MSG = 5;
-  
+
   PVector base1, base2;
 
   // coordinates of the 2 bases, chosen in the rectangle with corners
@@ -15,9 +15,11 @@ class GreenTeam extends Team {
   GreenTeam() {
     // first base
     base1 = new PVector(width/2 - 300, (height - 100)/2 - 150);
+    //base1 = new PVector(width/2 + 490, (height - 100)/2 - 190);
     // second base
     base2 = new PVector(width/2 - 300, (height - 100)/2 + 150);
-  }  
+    //base2 = new PVector(width/2 + 490, (height - 100)/2 + 190);
+  }
 }
 
 interface GreenRobot {
@@ -46,9 +48,9 @@ class GreenBase extends Base implements GreenRobot {
     // creates a new harvester
     newHarvester();
     // 7 more harvesters to create
-    brain[5].x = 8;
-    brain[5].y = 7;
-    brain[5].z = 6;
+    brain[5].x = 4;
+    brain[5].y = 1;
+    brain[5].z = 2;
   }
 
   //
@@ -58,24 +60,24 @@ class GreenBase extends Base implements GreenRobot {
   // > defines the behavior of the agent
   //
   void go() {
-    // handle received messages 
+    // handle received messages
     handleMessages();
 
     // creates new robots depending on energy and the state of brain[5]
     if ((brain[5].x > 0) && (energy >= 1000 + harvesterCost)) {
-      // 1st priority = creates harvesters 
+      // 1st priority = creates harvesters
       if (newHarvester())
         brain[5].x--;
     } else if ((brain[5].y > 0) && (energy >= 1000 + launcherCost)) {
-      // 2nd priority = creates rocket launchers 
+      // 2nd priority = creates rocket launchers
       if (newRocketLauncher())
         brain[5].y--;
     } else if ((brain[5].z > 0) && (energy >= 1000 + explorerCost)) {
-      // 3rd priority = creates explorers 
+      // 3rd priority = creates explorers
       if (newExplorer())
         brain[5].z--;
     } else if (energy > 12000) {
-      // if no robot in the pipe and enough energy 
+      // if no robot in the pipe and enough energy
       if ((int)random(2) == 0)
         // creates a new harvester with 50% chance
         brain[5].x++;
@@ -106,7 +108,7 @@ class GreenBase extends Base implements GreenRobot {
   //
   // handleMessage
   // =============
-  // > handle messages received since last activation 
+  // > handle messages received since last activation
   //
   void handleMessages() {
     Message msg;
@@ -125,27 +127,16 @@ class GreenBase extends Base implements GreenRobot {
           // gives the requested amount of bullets only if at least 1000 units of energy left after
           giveBullets(msg.alice, msg.args[0]);
         }
-      } else if(msg.type == INFORM_ABOUT_TARGET) {
-        informNearRobotsAboutTarget((int)msg.args[3]);
       }
-
     }
     // clear the message queue
     flushMessages();
-  }
-  // TD3 : I.2. Send information about the target to the robots in the area of perception
-  void informNearRobotsAboutTarget(int idTarget) {
-      ArrayList<Robot> rocky = perceiveRobots(friend, LAUNCHER); 
-      for (int i = 0; i < rocky.size(); i++) {
-        informAboutTarget(rocky.get(i), game.getRobot(idTarget));
-      }
-
   }
 }
 
 ///////////////////////////////////////////////////////////////////////////
 //
-// The code for the green explorers
+// The code for the Green explorers
 //
 ///////////////////////////////////////////////////////////////////////////
 // map of the brain:
@@ -178,16 +169,32 @@ class GreenExplorer extends Explorer implements GreenRobot {
   // > defines the behavior of the agent
   //
   void go() {
-    // if food to deposit or too few energy
-    if ((carryingFood > 200) || (energy < 100))
-      // time to go back to base
-      brain[4].x = 1;
-
+    // if faf in perceived
+    if (perceiveFafs() != null) {
+      // "dodge" mode
+      brain[4].x = 2;
+      ArrayList fafsInCone = perceiveFafs();
+      Missile miss = (Missile)minDist(fafsInCone);
+      float an = towards(miss);
+      heading = radians(180) - an;
+      tryToMoveForward();
+    } else {
+      // if food to deposit or too few energy
+      if ((carryingFood > 200) || (energy < 100))
+        // time to go back to base
+        brain[4].x = 1;
+      else brain[4].x = 0;
+    }
+    
     // depending on the state of the robot
     if (brain[4].x == 1) {
       // go back to base...
       goBackToBase();
     } else {
+      // if "dodge" state, dodge
+      if (brain[4].x == 2) {
+        tryToMoveForward();
+      } else
       // ...or explore randomly
       randomMove(45);
     }
@@ -245,7 +252,7 @@ class GreenExplorer extends Explorer implements GreenRobot {
         // if still away from the base
         // head towards the base (with some variations)...
         heading = towards(bob) + random(-radians(20), radians(20));
-        // ...and try to move forward 
+        // ...and try to move forward
         tryToMoveForward();
       }
     }
@@ -273,8 +280,10 @@ class GreenExplorer extends Explorer implements GreenRobot {
     // look for burgers
     Burger zorg = (Burger)oneOf(perceiveBurgers());
     if (zorg != null) {
+      // if one is seen, look for a friend harvester
       Harvester harvey = (Harvester)oneOf(perceiveRobots(friend, HARVESTER));
       if (harvey != null)
+        // if a harvester is seen, send a message to it with the position of food
         informAboutFood(harvey, zorg.pos);
     }
   }
@@ -285,7 +294,7 @@ class GreenExplorer extends Explorer implements GreenRobot {
   // > tell rocket launchers about potential targets
   //
   void driveRocketLaunchers() {
-    // look for an ennemy robot 
+    // look for an ennemy robot
     Robot bob = (Robot)oneOf(perceiveRobots(ennemy));
     if (bob != null) {
       // if one is seen, look for a friend rocket launcher
@@ -341,7 +350,7 @@ class GreenExplorer extends Explorer implements GreenRobot {
 //
 ///////////////////////////////////////////////////////////////////////////
 // map of the brain:
-//   4.x = (0 = look for food | 1 = go back to base) 
+//   4.x = (0 = look for food | 1 = go back to base)
 //   4.y = (0 = no food found | 1 = food found)
 //   0.x / 0.y = position of the localized food
 ///////////////////////////////////////////////////////////////////////////
@@ -371,22 +380,28 @@ class GreenHarvester extends Harvester implements GreenRobot {
   void go() {
     // handle messages received
     handleMessages();
-
-    // check for the closest burger
-    Burger b = (Burger)minDist(perceiveBurgers());
-    if ((b != null) && (distance(b) <= 2))
-      // if one is found next to the robot, collect it
-      takeFood(b);
-
-    // if food to deposit or too few energy
-    if ((carryingFood > 400) || (energy < 100))
-      // time to go back to the base
-      brain[4].x = 1;
-    //If the harvester has a lot of food, it gives it to an explorer
-    else if(carryingFood > 200) {
-      Explorer explo = (Explorer)oneOf(perceiveRobots(friend, EXPLORER));
-      if (explo != null)
-        giveFood(explo, carryingFood);
+    
+    // if faf in perceived
+    if (perceiveFafs() != null) {
+      // "dodge" mode
+      brain[4].x = 2;
+      ArrayList fafsInCone = perceiveFafs();
+      Missile miss = (Missile)minDist(fafsInCone);
+      float an = towards(miss);
+      heading = radians(180) - an;
+      tryToMoveForward();
+    } else {
+      // check for the closest burger
+      Burger b = (Burger)minDist(perceiveBurgers());
+      if ((b != null) && (distance(b) <= 2))
+        // if one is found next to the robot, collect it
+        takeFood(b);
+  
+      // if food to deposit or too few energy
+      if ((carryingFood > 200) || (energy < 100))
+        // time to go back to the base
+        brain[4].x = 1;
+      else brain[4].x = 0;
     }
 
     // if in "go back" state
@@ -407,6 +422,10 @@ class GreenHarvester extends Harvester implements GreenRobot {
       }
     } else
       // if not in the "go back" state, explore and collect food
+      // if "dodge" state, dodge
+      if (brain[4].x == 2) {
+        tryToMoveForward();
+      } else
       goAndEat();
   }
 
@@ -457,7 +476,7 @@ class GreenHarvester extends Harvester implements GreenRobot {
     Base bob = (Base)minDist(myBases);
     if (bob != null) {
       float dist = distance(bob);
-      // if wall seen and not at the limit of perception of the base 
+      // if wall seen and not at the limit of perception of the base
       if ((wally != null) && ((dist < basePerception - 1) || (dist > basePerception + 2)))
         // tries to collect the wall
         takeWall(wally);
@@ -547,17 +566,16 @@ class GreenHarvester extends Harvester implements GreenRobot {
 
 ///////////////////////////////////////////////////////////////////////////
 //
-// The code for the green rocket launchers
+// The code for the Green rocket launchers
 //
 ///////////////////////////////////////////////////////////////////////////
 // map of the brain:
 //   0.x / 0.y = position of the target
 //   0.z = breed of the target
-//   4.x = (0 = look for target | 1 = go back to base) 
+//   4.x = (0 = look for target | 1 = go back to base | 2 = dodge Fafs)
 //   4.y = (0 = no target | 1 = localized target)
 ///////////////////////////////////////////////////////////////////////////
 class GreenRocketLauncher extends RocketLauncher implements GreenRobot {
-
   //
   // constructor
   // ===========
@@ -581,77 +599,111 @@ class GreenRocketLauncher extends RocketLauncher implements GreenRobot {
   // > defines the behavior of the agent
   //
   void go() {
-    
+    // handle received messages 
     handleMessages();
+    
+    // if faf in perceived
+    if (perceiveFafs() != null) {
+      // "dodge" mode
+      brain[4].x = 2;
+      ArrayList fafsInCone = perceiveFafs();
+      Missile miss = (Missile)minDist(fafsInCone);
+      float an = towards(miss);
+      heading = radians(180) - an;
+      tryToMoveForward();
+    }
     // if no energy or no bullets
-    if ((energy < 100) || (bullets == 0))
-      // go back to the base
-      brain[4].x = 1;
-
-    Faf faf = (Faf)minDist(perceiveFafs());
-        if (faf != null) {
-          avoidFafs(faf);
-        }
+    else {
+      if ((energy < 100) || (bullets == 0))
+        // go back to the base
+        brain[4].x = 1;
+      else 
+        // back to normal mode
+        brain[4].x = 0;
+    }
     if (brain[4].x == 1) {
       // if in "go back to base" mode
       goBackToBase();
     } else {
-      // try to find a target
-      selectTarget();
-      // if target identified
-      if (target())
-      {
+      if (brain[4].x == 2) {
+        tryToMoveForward();
+      } else {
+        // try to find a target
+        
+        if (target()) {
+          //target by message
+          PVector directionOfTheOponent = new PVector(brain[0].x, brain[0].y);
+          heading = towards(directionOfTheOponent);
+        }
+        
+        selectTarget();
+        // if target identified
+        if (target()){
           // shoot on the target
-          moveTowardsTarget();
-          launchBulletWithPGreeniction();
+          /*
+          if((int) brain[0].x != (int) brain[1].x || (int) brain[0].y != (int) brain[1].y){
+            //launchBullet(towards(brain[0].add(brain[0].sub(brain[1]).mult(distance(brain[0])))));
+            
+            
+          }
+          else{
+            launchBullet(towards(brain[0]));
+            print("Normal Launch \n");
+          }
+          */
+          //entre 0.6 et 0.75, 0.7 semble bien
+          float distanceToTarget = abs(brain[0].dist(pos));
+          
+          if(distanceToTarget <= 10){
+            tryToMoveBackward();
+          }
+          
+          float anticipation = 0.7;
+          PVector directionOfTheOponent = new PVector(brain[0].x - brain[1].x,brain[0].y - brain[1].y,0);
+          launchBullet(towards(new PVector(brain[0].x + directionOfTheOponent.x * distance(brain[0]) * anticipation
+          ,brain[0].y + directionOfTheOponent.y * distance(brain[0]) * anticipation
+          ,brain[0].z)));
+          //print("Angle de tir = "+towards(brain[0])+"\n");
+          //print("Anticipation Launch | brain[0] = ("+brain[0].x+";"+brain[0].y+") | brain[1] = ("+brain[1].x+";"+brain[1].y+") | substract = ("+(brain[0].x - brain[1].x)+";"+(brain[0].y - brain[1].y)+")\n");
+        } 
+        else
+          // else explore randomly
+          randomMove(45);       
       }
-      else
-        // else explore randomly
-        randomMove(45);
     }
   }
-    void launchBulletWithPGreeniction()
-    {
-      if(brain[1].x != 0 && brain[1].y != 0 && brain[1].z != 0) // If we have a previous position of the target
-      {
-        PVector direction = PVector.sub(brain[0], brain[1]); //Calculate the direction to the target
-        //Add the direction to the target position
-        PVector pGreenictedPosition = PVector.add(brain[0], direction);
-        launchBullet(towards(pGreenictedPosition));
-      }
-      else
-      {
-        launchBullet(towards(new PVector(brain[0].x, brain[0].y)));
-      }
-    }
-    void avoidFafs(Faf faf) {
-      // Calculate the perpendicular direction to the Faf
-      float perpendicularDirection = towards(faf) + radians(90);
-    
-      heading = perpendicularDirection;
-      tryToMoveForward();
-    }
-    void moveTowardsTarget() {
-      heading = towards(brain[0]);
   
-      tryToMoveForward();
-    }
-    void handleMessages() {
-      Message msg;
-      // for all messages
-      for (int i = 0; i < messages.size(); i++) {
-        msg = messages.get(i);
+  void handleMessages() {
+    float d = width;
+    PVector p = new PVector();
 
-        if (msg.type == INFORM_ABOUT_TARGET) {
-          brain[0].x = msg.args[0];
-          brain[0].y = msg.args[1];
+    Message msg;
+    // for all messages
+    for (int i=0; i<messages.size(); i++) {
+      // get next message
+      msg = messages.get(i);
+      // if "localized target" message
+      if (msg.type == INFORM_ABOUT_TARGET) {
+        // record the position of the target
+        p.x = msg.args[0];
+        p.y = msg.args[1];
+        if (distance(p) < d) {
+          // if burger closer than closest target
+          // record the position in the brain
+          brain[0].x = p.x;
+          brain[0].y = p.y;
           brain[0].z = msg.args[2];
-          brain[4].y = 1; 
+          // update the distance of the closest target
+          d = distance(p);
+          // update the corresponding flag
+          brain[4].y = 1;
         }
       }
-      flushMessages();
     }
-
+    // clear the message queue
+    flushMessages();
+  }
+  
   //
   // selectTarget
   // ============
@@ -661,10 +713,10 @@ class GreenRocketLauncher extends RocketLauncher implements GreenRobot {
     // look for the closest ennemy robot
     Robot bob = (Robot)minDist(perceiveRobots(ennemy));
     if (bob != null) {
-
+      
       brain[1].x = brain[0].x;
       brain[1].y = brain[0].y;
-      brain[1].z = brain[0].z;
+      brain[1].z = bob.breed;
       // if one found, record the position and breed of the target
       brain[0].x = bob.pos.x;
       brain[0].y = bob.pos.y;
@@ -711,7 +763,7 @@ class GreenRocketLauncher extends RocketLauncher implements GreenRobot {
         // make a half turn
         right(180);
       } else {
-        // if not next to the base, head towards it... 
+        // if not next to the base, head towards it...
         heading = towards(bob) + random(-radians(20), radians(20));
         // ...and try to move forward
         tryToMoveForward();
@@ -728,6 +780,16 @@ class GreenRocketLauncher extends RocketLauncher implements GreenRobot {
     // if there is an obstacle ahead, rotate randomly
     if (!freeAhead(speed))
       right(random(360));
+
+    // if there is no obstacle ahead, move forward at full speed
+    if (freeAhead(speed))
+      forward(speed);
+  }
+  
+  void tryToMoveBackward() {
+    // if there is an obstacle ahead, rotate randomly
+    if (!freeAhead(speed))
+      right(random(180));
 
     // if there is no obstacle ahead, move forward at full speed
     if (freeAhead(speed))

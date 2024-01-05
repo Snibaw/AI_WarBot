@@ -74,17 +74,20 @@ class RedBase extends Base implements RedRobot {
       // 3rd priority = creates explorers 
       if (newExplorer())
         brain[5].z--;
-    } else if (energy > 12000) {
+    } else if (energy > 8000) {
       // if no robot in the pipe and enough energy 
       if ((int)random(2) == 0)
         // creates a new harvester with 50% chance
         brain[5].x++;
-      else if ((int)random(2) == 0)
-        // creates a new rocket launcher with 25% chance
+      // else if ((int)random(2) == 0)
+      //   // creates a new rocket launcher with 25% chance
+      //   brain[5].y++;
+      // else
+      //   // creates a new explorer with 25% chance
+      //   brain[5].z++;
+      //Create a new rocket launcher with 50 % chance
+      else 
         brain[5].y++;
-      else
-        // creates a new explorer with 25% chance
-        brain[5].z++;
     }
 
     // creates new bullets and fafs if the stock is low and enought energy
@@ -100,6 +103,14 @@ class RedBase extends Base implements RedRobot {
       // launch a faf if no friend robot on the trajectory...
       if (perceiveRobotsInCone(friend, heading) == null)
         launchFaf(bob);
+      if(perceiveRobotsInCone(friend, heading) != null || baseNbFafs == 0)
+      {
+        //Alert the rocket launchers
+        ArrayList<Robot> rocky = perceiveRobots(friend, LAUNCHER);
+        for (int i = 0; i < rocky.size(); i++) {
+          informAboutTarget(rocky.get(i), bob);
+        }
+      }
     }
   }
 
@@ -169,6 +180,9 @@ class RedExplorer extends Explorer implements RedRobot {
   // > called at the creation of the agent
   //
   void setup() {
+    brain[1].x = pos.x;
+    brain[1].y = pos.y;
+    brain[1].z = 0;
   }
 
   //
@@ -180,6 +194,10 @@ class RedExplorer extends Explorer implements RedRobot {
   void go() {
 
     handleMessages();
+    Faf faf = (Faf)minDist(perceiveFafs());
+    if (faf != null) {
+      avoidFafs(faf);
+    }
     // if food to deposit or too few energy
     if ((carryingFood > 200) || (energy < 100))
       // time to go back to base
@@ -202,6 +220,34 @@ class RedExplorer extends Explorer implements RedRobot {
     driveHarvesters();
     // inform rocket launchers about targets
     driveRocketLaunchers();
+
+    UnstuckExploreur();
+    
+  }
+  void UnstuckExploreur()
+  {
+    //Check if the robot is moving
+    if(brain[1].x == pos.x && brain[1].y == pos.y)
+    {
+      //If not, increment the counter
+      brain[1].z++;
+    }
+    else
+    {
+      //If yes, reset the counter
+      brain[1].z = 0;
+    }
+    //If the robot is stuck, find the closest wall and go in the opposite direction
+    if(brain[1].z > 10)
+    {
+      Wall wally = (Wall)minDist(perceiveWalls());
+      if (wally != null) {
+        heading = towards(wally) + radians(180);
+        tryToMoveForward();
+      }
+    }
+    brain[1].x = pos.x;
+    brain[1].y = pos.y;
   }
     void handleMessages() {
     float d = width;
@@ -239,6 +285,13 @@ class RedExplorer extends Explorer implements RedRobot {
     brain[0].y = p.y;
     brain[0].z = breed;
     brain[4].y = 1;
+  }
+  void avoidFafs(Faf faf) {
+    // Calculate the perpendicular direction to the Faf
+    float perpendicularDirection = towards(faf) + radians(90);
+  
+    heading = perpendicularDirection;
+    tryToMoveForward();
   }
 
   //
@@ -396,19 +449,31 @@ class RedHarvester extends Harvester implements RedRobot {
     // handle messages received
     handleMessages();
 
-    // check for the closest burger
-    Burger b = (Burger)minDist(perceiveBurgers());
-    if ((b != null) && (distance(b) <= 2))
-      // if one is found next to the robot, collect it
-      takeFood(b);
+    ArrayList<Burger> burgers = perceiveBurgers();
+    if(burgers != null)
+    {
+      for(int i = 0; i < burgers.size(); i++)
+      {
+        if(distance(burgers.get(i)) <= 2)
+        {
+          takeFood(burgers.get(i));
+        }
+      }
+    }
 
+    Faf faf = (Faf)minDist(perceiveFafs());
+    if (faf != null) {
+      avoidFafs(faf);
+    }
     // if food to deposit or too few energy
-    if ((carryingFood > 1000) || (energy < 100))
+    if ((carryingFood > 200) || (energy < 100))
       // time to go back to the base
       brain[4].x = 1;
+    else brain[4].x = 0;
+    
     
     //If the harvester has a lot of food and is far to the base, give food to an explorer
-    else if(carryingFood > 200 && distance(minDist(myBases)) > basePerception) {
+    if(carryingFood > 100 && distance(minDist(myBases)) > basePerception && energy > 100) {
       Explorer explo = (Explorer)oneOf(perceiveRobots(friend, EXPLORER));
       if (explo != null)
         giveFood(explo, carryingFood);
@@ -442,8 +507,40 @@ class RedHarvester extends Harvester implements RedRobot {
     } else
       // if not in the "go back" state, explore and collect food
       goAndEat();
+    
+    // ManageWall();
   }
-
+  // void ManageWall()
+  // {
+  //   Robot bob = (Robot)minDist(perceiveRobots(ennemy));
+  //   if(energy > 300 && bob == null) // not getting attacked
+  //   {
+  //     Wall wally = (Wall)minDist(perceiveWalls());
+  //     if (wally != null) {
+  //       print("takeWall");
+  //       takeWall(wally);
+  //     }
+  //   }
+  //   else //If the harvester is being attacked, drop walls to distract the ennemy
+  //   {
+  //     if(brain[1].z <= 0)
+  //     {
+  //       dropWall();
+  //       brain[1].z = 10;
+  //     }
+  //     else
+  //     {
+  //       brain[1].z--;
+  //     }
+  //   }
+  // }
+    void avoidFafs(Faf faf) {
+      // Calculate the perpendicular direction to the Faf
+      float perpendicularDirection = towards(faf) + radians(90);
+    
+      heading = perpendicularDirection;
+      tryToMoveForward();
+    }
   //
   // goBackToBase
   // ============
@@ -621,11 +718,13 @@ class RedRocketLauncher extends RocketLauncher implements RedRobot {
     if ((energy < 100) || (bullets == 0))
       // go back to the base
       brain[4].x = 1;
+    else brain[4].x = 0;
 
     Faf faf = (Faf)minDist(perceiveFafs());
         if (faf != null) {
           avoidFafs(faf);
         }
+
     if (brain[4].x == 1) {
       // if in "go back to base" mode
       goBackToBase();
