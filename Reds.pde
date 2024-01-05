@@ -74,7 +74,7 @@ class RedBase extends Base implements RedRobot {
       // 3rd priority = creates explorers 
       if (newExplorer())
         brain[5].z--;
-    } else if (energy > 8000) {
+    } else if (energy > 12000) {
       // if no robot in the pipe and enough energy 
       if ((int)random(2) == 0)
         // creates a new harvester with 50% chance
@@ -459,10 +459,19 @@ class RedHarvester extends Harvester implements RedRobot {
         if(distance(burgers.get(i)) <= 2)
         {
           takeFood(burgers.get(i));
-          // Save the position of the food
-          brain[1].x = burgers.get(i).pos.x;
-          brain[1].y = burgers.get(i).pos.y;
-          brain[1].z = 1;
+          // Save the position of the first food seen
+          if(brain[1].z == 0)
+          {
+            brain[1].x = burgers.get(i).pos.x;
+            brain[1].y = burgers.get(i).pos.y;
+            brain[1].z = 1;
+          }
+          // Save the position of the furthest food to earn time
+          else if(distance(burgers.get(i)) > distance(new PVector(brain[1].x, brain[1].y)))
+          {
+            brain[1].x = burgers.get(i).pos.x;
+            brain[1].y = burgers.get(i).pos.y;
+          }
         }
       }
     }
