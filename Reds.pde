@@ -46,9 +46,9 @@ class RedBase extends Base implements RedRobot {
     // creates a new harvester
     newHarvester();
     // 7 more harvesters to create
-    brain[5].x = 8;
-    brain[5].y = 7;
-    brain[5].z = 6;
+    brain[5].x = 5;
+    brain[5].y = 3;
+    brain[5].z = 3;
   }
 
   //
@@ -126,7 +126,7 @@ class RedBase extends Base implements RedRobot {
           giveBullets(msg.alice, msg.args[0]);
         }
       } else if(msg.type == INFORM_ABOUT_TARGET) {
-        informNearRobotsAboutTarget((int)msg.args[3]); // We found a target, we inform the robots in the area of perception
+        informNearRobotsAboutTarget((int)msg.args[3]);
       }
 
     }
@@ -135,9 +135,9 @@ class RedBase extends Base implements RedRobot {
   }
   // TD3 : I.2. Send information about the target to the robots in the area of perception
   void informNearRobotsAboutTarget(int idTarget) {
-      ArrayList<Robot> rocky = perceiveRobots(friend, LAUNCHER); // Robots in the area of perception
+      ArrayList<Robot> rocky = perceiveRobots(friend, LAUNCHER); 
       for (int i = 0; i < rocky.size(); i++) {
-        informAboutTarget(rocky.get(i), game.getRobot(idTarget)); // Send information about the target to the robots in the area of perception
+        informAboutTarget(rocky.get(i), game.getRobot(idTarget));
       }
 
   }
@@ -178,16 +178,20 @@ class RedExplorer extends Explorer implements RedRobot {
   // > defines the behavior of the agent
   //
   void go() {
+
+    handleMessages();
     // if food to deposit or too few energy
     if ((carryingFood > 200) || (energy < 100))
       // time to go back to base
       brain[4].x = 1;
 
+    // Base basey = (Base)minDist(myBases);
     // depending on the state of the robot
     if (brain[4].x == 1) {
       // go back to base...
       goBackToBase();
-    } else {
+    } 
+    else {
       // ...or explore randomly
       randomMove(45);
     }
@@ -198,7 +202,24 @@ class RedExplorer extends Explorer implements RedRobot {
     driveHarvesters();
     // inform rocket launchers about targets
     driveRocketLaunchers();
+  }
+    void handleMessages() {
+    float d = width;
+    PVector p = new PVector();
 
+    Message msg;
+    // for all messages
+    for (int i=0; i<messages.size(); i++) {
+      // get next message
+      msg = messages.get(i);
+      // if "localized food" message
+      if (msg.type == HARVESTER_FULL) {
+        brain[0].x = msg.args[0];
+        brain[0].y = msg.args[1];
+        heading = towards(brain[0]);
+        tryToMoveForward();
+      }
+    }
     // clear the message queue
     flushMessages();
   }
@@ -237,6 +258,9 @@ class RedExplorer extends Explorer implements RedRobot {
         if (energy < 500)
           // if my energy is low, I ask for some more
           askForEnergy(bob, 1500 - energy);
+        if (carryingFood > 200)
+          // if I carry food, I give it to the base
+          giveFood(bob, carryingFood);
         // switch to the exploration state
         brain[4].x = 0;
         // make a half turn
@@ -273,10 +297,8 @@ class RedExplorer extends Explorer implements RedRobot {
     // look for burgers
     Burger zorg = (Burger)oneOf(perceiveBurgers());
     if (zorg != null) {
-      // if one is seen, look for a friend harvester
       Harvester harvey = (Harvester)oneOf(perceiveRobots(friend, HARVESTER));
       if (harvey != null)
-        // if a harvester is seen, send a message to it with the position of food
         informAboutFood(harvey, zorg.pos);
     }
   }
@@ -381,14 +403,24 @@ class RedHarvester extends Harvester implements RedRobot {
       takeFood(b);
 
     // if food to deposit or too few energy
-    if ((carryingFood > 200) || (energy < 100))
+    if ((carryingFood > 1000) || (energy < 100))
       // time to go back to the base
       brain[4].x = 1;
-    //If the harvester is full of food, it gives it to an explorer
-    else if(carryingFood > 2000) {
+    
+    //If the harvester has a lot of food and is far to the base, give food to an explorer
+    else if(carryingFood > 200 && distance(minDist(myBases)) > basePerception) {
       Explorer explo = (Explorer)oneOf(perceiveRobots(friend, EXPLORER));
       if (explo != null)
-        giveFood(explo, carryingFood-2000);
+        giveFood(explo, carryingFood);
+      else
+      {
+        Explorer explo2 = (Explorer)minDist(perceiveRobots(friend, EXPLORER));
+        if (explo2 != null)
+        {
+          sendMessage(explo2, HARVESTER_FULL, new float[] {pos.x, pos.y});
+        }
+          
+      }
     }
 
     // if in "go back" state
@@ -590,6 +622,10 @@ class RedRocketLauncher extends RocketLauncher implements RedRobot {
       // go back to the base
       brain[4].x = 1;
 
+    Faf faf = (Faf)minDist(perceiveFafs());
+        if (faf != null) {
+          avoidFafs(faf);
+        }
     if (brain[4].x == 1) {
       // if in "go back to base" mode
       goBackToBase();
@@ -599,21 +635,16 @@ class RedRocketLauncher extends RocketLauncher implements RedRobot {
       // if target identified
       if (target())
       {
-        // shoot on the target
-        Faf faf = (Faf)minDist(perceiveFafs());
-        if (faf != null) {
-          avoidFafs(faf);
-        } else {
+          // shoot on the target
           moveTowardsTarget();
           launchBulletWithPrediction();
-        }
       }
       else
         // else explore randomly
         randomMove(45);
     }
   }
-      void launchBulletWithPrediction()
+    void launchBulletWithPrediction()
     {
       if(brain[1].x != 0 && brain[1].y != 0 && brain[1].z != 0) // If we have a previous position of the target
       {
@@ -644,14 +675,12 @@ class RedRocketLauncher extends RocketLauncher implements RedRobot {
       // for all messages
       for (int i = 0; i < messages.size(); i++) {
         msg = messages.get(i);
-  
-        // Vérifiez le type de message
+
         if (msg.type == INFORM_ABOUT_TARGET) {
-          // Si le message est du type INFORM_ABOUT_TARGET,
           brain[0].x = msg.args[0];
           brain[0].y = msg.args[1];
           brain[0].z = msg.args[2];
-          brain[4].y = 1; // Définissez le drapeau pour indiquer qu'une cible est localisée
+          brain[4].y = 1; 
         }
       }
       flushMessages();
