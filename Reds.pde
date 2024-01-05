@@ -90,7 +90,7 @@ class RedBase extends Base implements RedRobot {
         brain[5].y++;
     }
 
-    // creates new bullets and fafs if the stock is low and enought energy
+    // creates new bullets and faf if the stock is low and enought energy
     if ((bullets < 10) && (energy > 1000))
       newBullets(50);
     if ((fafs < 10) && (energy > 1000))
@@ -196,7 +196,7 @@ class RedExplorer extends Explorer implements RedRobot {
     handleMessages();
     Faf faf = (Faf)minDist(perceiveFafs());
     if (faf != null) {
-      avoidFafs(faf);
+      RunAwayFromFafs(faf);
     }
     // if food to deposit or too few energy
     if ((carryingFood > 200) || (energy < 100))
@@ -286,11 +286,10 @@ class RedExplorer extends Explorer implements RedRobot {
     brain[0].z = breed;
     brain[4].y = 1;
   }
-  void avoidFafs(Faf faf) {
-    // Calculate the perpendicular direction to the Faf
-    float perpendicularDirection = towards(faf) + radians(90);
-  
-    heading = perpendicularDirection;
+  void RunAwayFromFafs(Faf faf)
+  {
+    //Go in the opposite direction of the faf
+    heading = towards(faf) + radians(180);
     tryToMoveForward();
   }
 
@@ -475,7 +474,7 @@ class RedHarvester extends Harvester implements RedRobot {
 
     Faf faf = (Faf)minDist(perceiveFafs());
     if (faf != null) {
-      avoidFafs(faf);
+      RunAwayFromFafs(faf);
     }
 
     // if food to deposit or too few energy
@@ -552,13 +551,12 @@ class RedHarvester extends Harvester implements RedRobot {
   //     }
   //   }
   // }
-    void avoidFafs(Faf faf) {
-      // Calculate the perpendicular direction to the Faf
-      float perpendicularDirection = towards(faf) + radians(90);
-    
-      heading = perpendicularDirection;
-      tryToMoveForward();
-    }
+  void RunAwayFromFafs(Faf faf)
+  {
+    //Go in the opposite direction of the faf
+    heading = towards(faf) + radians(180);
+    tryToMoveForward();
+  }
   //
   // goBackToBase
   // ============
@@ -740,7 +738,7 @@ class RedRocketLauncher extends RocketLauncher implements RedRobot {
 
     Faf faf = (Faf)minDist(perceiveFafs());
         if (faf != null) {
-          avoidFafs(faf);
+          RunAwayFromFafs(faf);
         }
 
     if (brain[4].x == 1) {
@@ -775,13 +773,12 @@ class RedRocketLauncher extends RocketLauncher implements RedRobot {
         launchBullet(towards(new PVector(brain[0].x, brain[0].y)));
       }
     }
-    void avoidFafs(Faf faf) {
-      // Calculate the perpendicular direction to the Faf
-      float perpendicularDirection = towards(faf) + radians(90);
-    
-      heading = perpendicularDirection;
-      tryToMoveForward();
-    }
+  void RunAwayFromFafs(Faf faf)
+  {
+    //Go in the opposite direction of the faf
+    heading = towards(faf) + radians(180);
+    tryToMoveForward();
+  }
     void moveTowardsTarget() {
       heading = towards(brain[0]);
   
