@@ -46,9 +46,9 @@ class RedBase extends Base implements RedRobot {
     // creates a new harvester
     newHarvester();
     // 7 more harvesters to create
-    brain[5].x = 7;
+    brain[5].x = 8;
     brain[5].y = 7;
-    brain[5].z = 7;
+    brain[5].z = 6;
   }
 
   //
@@ -559,6 +559,7 @@ class RedHarvester extends Harvester implements RedRobot {
 //   4.y = (0 = no target | 1 = localized target)
 ///////////////////////////////////////////////////////////////////////////
 class RedRocketLauncher extends RocketLauncher implements RedRobot {
+
   //
   // constructor
   // ===========
@@ -601,16 +602,10 @@ class RedRocketLauncher extends RocketLauncher implements RedRobot {
         // shoot on the target
         Faf faf = (Faf)minDist(perceiveFafs());
         if (faf != null) {
-          // Calculate the perpendicular direction to the Faf
-          float fafDirection = towards(faf);
-          float perpendicularDirection = fafDirection + radians(90);
-        
-          // Move in the perpendicular direction
-          heading = perpendicularDirection;
-          tryToMoveForward();
+          avoidFafs(faf);
         } else {
           moveTowardsTarget();
-          launchBullet(towards(new PVector(brain[0].x, brain[0].y)));
+          launchBulletWithPrediction();
         }
       }
       else
@@ -618,6 +613,27 @@ class RedRocketLauncher extends RocketLauncher implements RedRobot {
         randomMove(45);
     }
   }
+      void launchBulletWithPrediction()
+    {
+      if(brain[1].x != 0 && brain[1].y != 0 && brain[1].z != 0) // If we have a previous position of the target
+      {
+        PVector direction = PVector.sub(brain[0], brain[1]); //Calculate the direction to the target
+        //Add the direction to the target position
+        PVector predictedPosition = PVector.add(brain[0], direction);
+        launchBullet(towards(predictedPosition));
+      }
+      else
+      {
+        launchBullet(towards(new PVector(brain[0].x, brain[0].y)));
+      }
+    }
+    void avoidFafs(Faf faf) {
+      // Calculate the perpendicular direction to the Faf
+      float perpendicularDirection = towards(faf) + radians(90);
+    
+      heading = perpendicularDirection;
+      tryToMoveForward();
+    }
     void moveTowardsTarget() {
       heading = towards(brain[0]);
   
@@ -650,6 +666,10 @@ class RedRocketLauncher extends RocketLauncher implements RedRobot {
     // look for the closest ennemy robot
     Robot bob = (Robot)minDist(perceiveRobots(ennemy));
     if (bob != null) {
+
+      brain[1].x = brain[0].x;
+      brain[1].y = brain[0].y;
+      brain[1].z = brain[0].z;
       // if one found, record the position and breed of the target
       brain[0].x = bob.pos.x;
       brain[0].y = bob.pos.y;

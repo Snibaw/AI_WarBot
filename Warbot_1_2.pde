@@ -40,6 +40,7 @@ void settings() {
 //
 ///////////////////////////////////////////////////////////////////////////
 void setup() {
+  frameRate(10000);
   imageMode(CENTER);
   textAlign(CENTER, CENTER);
   if (!tournamentMode) {
