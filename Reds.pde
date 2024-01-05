@@ -437,6 +437,9 @@ class RedHarvester extends Harvester implements RedRobot {
   // > called at the creation of the agent
   //
   void setup() {
+    brain[1].x = 0; // Was localized food ?
+    brain[1].y = 0; 
+    brain[1].z = 0; // Was picking food ?
   }
 
   //
@@ -457,14 +460,24 @@ class RedHarvester extends Harvester implements RedRobot {
         if(distance(burgers.get(i)) <= 2)
         {
           takeFood(burgers.get(i));
+          // Save the position of the food
+          brain[1].x = burgers.get(i).pos.x;
+          brain[1].y = burgers.get(i).pos.y;
+          brain[1].z = 1;
         }
       }
+    }
+    else 
+    {
+      //No burgers seen, the robot can come back to the base if needed
+      brain[1].z = 0;
     }
 
     Faf faf = (Faf)minDist(perceiveFafs());
     if (faf != null) {
       avoidFafs(faf);
     }
+
     // if food to deposit or too few energy
     if ((carryingFood > 200) || (energy < 100))
       // time to go back to the base
@@ -488,8 +501,8 @@ class RedHarvester extends Harvester implements RedRobot {
       }
     }
 
-    // if in "go back" state
-    if (brain[4].x == 1) {
+    // if in "go back" state and no food found recently
+    if (brain[4].x == 1 && brain[1].z == 0) {
       // go back to the base
       goBackToBase();
 
@@ -504,7 +517,12 @@ class RedHarvester extends Harvester implements RedRobot {
             plantSeed();
         }
       }
-    } else
+    } else if(brain[1].z == 1) // If found was found last frame
+    {
+      //Head towards last seen food
+      heading = towards(new PVector(brain[1].x, brain[1].y));
+      tryToMoveForward();
+    }else
       // if not in the "go back" state, explore and collect food
       goAndEat();
     
